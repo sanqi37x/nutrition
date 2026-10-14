@@ -1,0 +1,19 @@
+{
+  "name": "每日营养记录",
+  "short_name": "营养记录",
+  "description": "记录每天的蛋白质、脂肪、膳食纤维、碳水和总热量摄入，并与推荐量对比",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F9FD",
+  "theme_color": "#5BA8E8",
+  "categories": ["health", "lifestyle"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

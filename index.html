@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>每日营养记录</title>
+
+<!-- 添加到主屏幕（PWA）所需的信息 -->
+<meta name="theme-color" content="#5BA8E8">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="营养记录">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root{
+    --primary:#5BA8E8; --primary-dark:#2E7DB8; --bg:#F5F9FD;
+    --card:#FFFFFF; --light:#E3F0FA; --text:#2C3E50; --text2:#7F8C9B;
+    --ok:#5BA8E8; --near:#F0A45C; --over:#E86A6A; --good:#56B98A;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); }
+  .app{ max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
+  main{ flex:1; padding:16px 16px 80px; }
+  .page{ display:none; }
+  .page.active{ display:block; }
+  h1{ font-size:20px; margin:4px 0 16px; }
+  .subtitle{ font-size:12px; color:var(--text2); margin:-8px 0 12px; }
+  .cat-title{ font-size:13px; color:var(--text2); margin:14px 2px 6px; font-weight:600; }
+  .date-nav{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .date-nav button{ padding:8px 12px; background:#fff; color:var(--primary); border:1px solid #d6e4f0; }
+  .date-nav button:disabled{ opacity:.4; }
+  .date-nav .date-label{ flex:1; text-align:center; font-size:14px; color:var(--text); font-weight:600; }
+  .date-nav input[type=date]{ flex:1; width:auto; padding:8px 6px; text-align:center; font-size:14px; font-weight:600; color:var(--text); border:1px solid #d6e4f0; border-radius:8px; background:#fff; }
+  .date-actions{ display:flex; gap:8px; margin-bottom:12px; }
+  .date-actions button{ flex:1; padding:8px 12px; background:#fff; color:var(--primary); border:1px solid #d6e4f0; font-size:14px; }
+  .rec-date-warn{ color:var(--near); font-weight:600; }
+  .cal-head{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .cal-head button{ padding:6px 12px; background:#fff; color:var(--primary); border:1px solid #d6e4f0; }
+  .cal-head button:disabled{ opacity:.4; }
+  .cal-head .date-label{ flex:1; text-align:center; font-size:15px; color:var(--text); font-weight:600; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-wd{ font-size:11px; color:var(--text2); text-align:center; padding:2px 0; }
+  .cal-cell{ height:38px; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:6px; background:#F2F6FA; color:#b9c6d3; }
+  .cal-cell.cal-empty{ background:none; }
+  .cal-cell.cal-low{ background:#D6E9FA; color:var(--text); }
+  .cal-cell.cal-mid{ background:#A8D0F0; color:var(--text); }
+  .cal-cell.cal-full{ background:var(--primary); color:#fff; }
+  .cal-cell.cal-over{ background:var(--over); color:#fff; }
+  .cal-cell[data-cal]{ cursor:pointer; }
+  .cal-cell.cal-today{ border:2px solid var(--good); }
+  .cal-legend{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:11px; color:var(--text2); margin-top:10px; }
+  .cal-dot{ width:14px; height:14px; border-radius:4px; display:inline-block; }
+  .card{ background:var(--card); border-radius:12px; padding:16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(44,62,80,.08); }
+  label{ display:block; font-size:13px; color:var(--text2); margin:12px 0 6px; }
+  input,select{ width:100%; padding:10px 12px; border:1px solid #d6e4f0; border-radius:8px; font-size:16px; color:var(--text); background:#fff; }
+  input:focus,select:focus{ outline:none; border-color:var(--primary); }
+  button{ font-size:16px; border:none; border-radius:8px; cursor:pointer; }
+  .primary{ width:100%; padding:12px; background:var(--primary); color:#fff; margin-top:16px; }
+  .primary:active{ background:var(--primary-dark); }
+  .danger{ width:100%; padding:12px; background:none; color:var(--over); border:1px solid #f3c6c6; margin-top:16px; }
+  .tabbar{ position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; display:flex; background:#fff; border-top:1px solid #e3edf6; }
+  .tabbar button{ flex:1; padding:10px 0; background:none; color:var(--text2); font-size:12px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .tab-icon{ font-size:18px; line-height:1; }
+  .tabbar button.active{ color:var(--primary); font-weight:600; }
+  .seg{ display:flex; background:var(--light); border-radius:8px; padding:4px; margin-bottom:12px; }
+  .seg button{ flex:1; padding:8px; background:none; color:var(--text2); border-radius:6px; }
+  .seg button.active{ background:#fff; color:var(--primary); font-weight:600; }
+  .nutri-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .nutri-label{ font-size:15px; font-weight:600; }
+  .nutri-value{ font-size:13px; color:var(--text2); }
+  .progress{ height:8px; background:var(--light); border-radius:4px; margin-top:8px; overflow:hidden; }
+  .progress-fill{ height:100%; border-radius:4px; transition:width .3s; }
+  .progress-fill.ok{ background:var(--ok); }
+  .progress-fill.near{ background:var(--near); }
+  .progress-fill.over{ background:var(--over); }
+  .nutri-note{ font-size:12px; color:var(--text2); margin-top:4px; }
+  .entry{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f0f5fa; }
+  .entry:last-child{ border-bottom:none; }
+  .entry .name{ font-size:15px; }
+  .entry .sub{ font-size:12px; color:var(--text2); }
+  .entry .kcal{ font-size:14px; font-weight:600; }
+  .del{ background:none; color:#c9d5e0; font-size:20px; padding:0 4px; }
+  .hint{ background:var(--light); border-radius:12px; padding:20px; text-align:center; color:var(--text2); line-height:1.6; }
+  .hidden{ display:none; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .radio-row{ display:flex; gap:20px; }
+  .radio-row label{ display:flex; align-items:center; gap:6px; margin:0; color:var(--text); font-size:15px; }
+  .radio-row input{ width:auto; }
+  .result-line{ display:flex; justify-content:space-between; padding:6px 0; font-size:14px; }
+  .result-line b{ font-weight:600; }
+  .bars{ display:flex; align-items:flex-end; gap:3px; height:90px; margin-top:10px; }
+  .bars .bar{ flex:1; min-height:2px; background:var(--light); border-radius:3px 3px 0 0; }
+  .bars .bar.has{ background:var(--primary); }
+  .bars .bar.today{ background:var(--good); }
+  .bars-axis{ display:flex; justify-content:space-between; font-size:11px; color:var(--text2); margin-top:6px; }
+  .card-title{ font-size:15px; font-weight:600; margin-bottom:4px; }
+  .toast{ position:fixed; left:50%; bottom:90px; transform:translateX(-50%) translateY(10px); background:rgba(44,62,80,.9); color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; opacity:0; transition:all .3s; z-index:99; pointer-events:none; max-width:80%; text-align:center; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <!-- 首页：今日统计 -->
+    <section id="page-home" class="page active">
+      <h1>今日统计</h1>
+      <div class="date-nav">
+        <button id="prev-day" type="button">‹</button>
+        <input id="view-date" type="date">
+        <button id="next-day" type="button">›</button>
+      </div>
+      <div class="date-actions hidden" id="date-actions">
+        <button id="today-btn" type="button">回到今天</button>
+        <button id="backfill-btn" type="button">补记这天</button>
+      </div>
+      <div id="home-content"></div>
+    </section>
+
+    <!-- 记录：添加饮食 -->
+    <section id="page-record" class="page">
+      <h1>记录饮食</h1>
+      <div class="card">
+        <label>记录到哪一天</label>
+        <input id="rec-date" type="date">
+        <div class="nutri-note" id="rec-date-note"></div>
+      </div>
+      <div class="seg">
+        <button id="seg-lib" class="active" type="button">从食物库选择</button>
+        <button id="seg-manual" type="button">手动输入</button>
+      </div>
+
+      <div id="record-lib" class="card">
+        <label>选择食物</label>
+        <select id="food-select"></select>
+        <label>分量（克）</label>
+        <input id="lib-grams" type="number" inputmode="decimal" placeholder="例如 150">
+      </div>
+
+      <div id="record-manual" class="card hidden">
+        <label>食物名称</label>
+        <input id="m-name" type="text" placeholder="例如 玉米">
+        <div class="grid2">
+          <div><label>蛋白质(克/100克)</label><input id="m-protein" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>脂肪(克/100克)</label><input id="m-fat" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>膳食纤维(克/100克)</label><input id="m-fiber" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>碳水(克/100克)</label><input id="m-carb" type="number" inputmode="decimal" placeholder="0"></div>
+        </div>
+        <label>分量（克）</label>
+        <input id="m-grams" type="number" inputmode="decimal" placeholder="例如 150">
+      </div>
+
+      <div id="preview" class="card hidden"></div>
+      <button id="confirm-btn" class="primary" type="button">确认计入今日</button>
+    </section>
+
+    <!-- 汇总：多日统计 -->
+    <section id="page-summary" class="page">
+      <h1>汇总</h1>
+      <div class="seg">
+        <button id="seg-7" class="active" type="button">近 7 天</button>
+        <button id="seg-30" type="button">近 30 天</button>
+      </div>
+      <div id="summary-content"></div>
+      <div class="card">
+        <div class="cal-head">
+          <button id="cal-prev" type="button">‹</button>
+          <div class="date-label" id="cal-title"></div>
+          <button id="cal-next" type="button">›</button>
+        </div>
+        <div class="subtitle" style="margin:0 0 8px;">点有颜色的日期，可查看那天的详细摄入</div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-legend">
+          <span class="cal-dot" style="background:#F2F6FA;"></span>无记录
+          <span class="cal-dot" style="background:#D6E9FA;"></span>偏少
+          <span class="cal-dot" style="background:#A8D0F0;"></span>接近
+          <span class="cal-dot" style="background:#5BA8E8;"></span>达标
+          <span class="cal-dot" style="background:#E86A6A;"></span>超标
+        </div>
+        <div class="nutri-note" id="cal-info"></div>
+      </div>
+    </section>
+
+    <!-- 食物库：浏览、搜索、添加 -->
+    <section id="page-foodlib" class="page">
+      <h1>食物库</h1>
+      <div class="card">
+        <input id="lib-search" type="text" placeholder="搜索食物名称">
+      </div>
+      <button id="show-add-form" class="primary" type="button">＋ 添加自定义食物</button>
+      <div id="add-food-form" class="card hidden">
+        <label>食物名称</label>
+        <input id="af-name" type="text" placeholder="例如 玉米">
+        <label>做法（可空）</label>
+        <input id="af-cooking" type="text" placeholder="例如 煮、蒸、煎">
+        <div class="grid2">
+          <div><label>蛋白质(克/100克)</label><input id="af-protein" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>脂肪(克/100克)</label><input id="af-fat" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>膳食纤维(克/100克)</label><input id="af-fiber" type="number" inputmode="decimal" placeholder="0"></div>
+          <div><label>碳水(克/100克)</label><input id="af-carb" type="number" inputmode="decimal" placeholder="0"></div>
+        </div>
+        <button id="save-custom-food" class="primary" type="button">保存到食物库</button>
+      </div>
+      <div id="foodlib-list"></div>
+    </section>
+
+    <!-- 我的：身体信息 -->
+    <section id="page-profile" class="page">
+      <h1>我的身体信息</h1>
+      <div class="card">
+        <label>身高（厘米）</label>
+        <input id="p-height" type="number" inputmode="decimal" placeholder="例如 170">
+        <label>体重（公斤）</label>
+        <input id="p-weight" type="number" inputmode="decimal" placeholder="例如 65">
+        <label>年龄</label>
+        <input id="p-age" type="number" inputmode="numeric" placeholder="例如 30">
+        <label>性别</label>
+        <div class="radio-row">
+          <label><input type="radio" name="gender" value="male"> 男</label>
+          <label><input type="radio" name="gender" value="female"> 女</label>
+        </div>
+        <label>活动量</label>
+        <select id="p-activity"></select>
+        <button id="save-profile" class="primary" type="button">保存</button>
+      </div>
+      <div id="profile-result" class="card hidden"></div>
+      <button id="clear-data" class="danger" type="button">清除所有数据</button>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="home" class="active" type="button"><span class="tab-icon">🏠</span>首页</button>
+    <button data-tab="record" type="button"><span class="tab-icon">➕</span>记录</button>
+    <button data-tab="summary" type="button"><span class="tab-icon">📊</span>汇总</button>
+    <button data-tab="foodlib" type="button"><span class="tab-icon">🍎</span>食物库</button>
+    <button data-tab="profile" type="button"><span class="tab-icon">👤</span>我的</button>
+  </nav>
+</div>
+
+<script>
+(function(){
+  // ---------- 常量 ----------
+  var ACTIVITY_LEVELS = [
+    { value:1, label:'久坐（几乎不运动）', factor:1.2 },
+    { value:2, label:'轻度运动（每周1-3次）', factor:1.375 },
+    { value:3, label:'中度运动（每周3-5次）', factor:1.55 },
+    { value:4, label:'高强度运动（每周6-7次）', factor:1.725 }
+  ];
+
+  // 内置常见食物：每 100 克的营养值（克），为近似参考值，仅供日常记录
+  var BUILTIN_FOODS = [
+    // 主食
+    { id:'f_rice', name:'米饭', cooking:'蒸', category:'主食', protein:2.6, fat:0.3, fiber:0.3, carb:25.9 },
+    { id:'f_mantou', name:'馒头', cooking:'蒸', category:'主食', protein:7.0, fat:1.1, fiber:1.3, carb:47.0 },
+    { id:'f_noodle', name:'面条', cooking:'煮', category:'主食', protein:4.0, fat:0.4, fiber:0.9, carb:22.0 },
+    { id:'f_wbread', name:'全麦面包', cooking:'烤', category:'主食', protein:9.0, fat:3.5, fiber:6.0, carb:46.0 },
+    { id:'f_wbread_white', name:'白面包', cooking:'烤', category:'主食', protein:8.0, fat:3.0, fiber:2.5, carb:50.0 },
+    { id:'f_oats', name:'燕麦片', cooking:'煮', category:'主食', protein:4.0, fat:1.5, fiber:2.0, carb:14.0 },
+    { id:'f_sweetpotato', name:'红薯', cooking:'蒸', category:'主食', protein:1.6, fat:0.2, fiber:3.0, carb:20.0 },
+    { id:'f_potato', name:'土豆', cooking:'煮', category:'主食', protein:2.0, fat:0.1, fiber:1.5, carb:17.0 },
+    { id:'f_corn', name:'玉米', cooking:'煮', category:'主食', protein:3.4, fat:1.0, fiber:2.4, carb:19.0 },
+    { id:'f_millet', name:'小米粥', cooking:'煮', category:'主食', protein:1.4, fat:0.7, fiber:0.5, carb:8.4 },
+    // 肉类
+    { id:'f_chicken', name:'鸡胸肉', cooking:'煮', category:'肉类', protein:22.0, fat:2.0, fiber:0, carb:0 },
+    { id:'f_chicken_leg', name:'鸡腿肉（去皮）', cooking:'煮', category:'肉类', protein:19.0, fat:4.0, fiber:0, carb:0 },
+    { id:'f_pork_loin', name:'猪里脊', cooking:'煮', category:'肉类', protein:20.0, fat:3.0, fiber:0, carb:0 },
+    { id:'f_pork_belly', name:'猪五花肉', cooking:'煮', category:'肉类', protein:9.0, fat:30.0, fiber:0, carb:0 },
+    { id:'f_beef', name:'瘦牛肉', cooking:'煮', category:'肉类', protein:21.0, fat:4.0, fiber:0, carb:0 },
+    { id:'f_lamb', name:'瘦羊肉', cooking:'煮', category:'肉类', protein:20.0, fat:4.0, fiber:0, carb:0 },
+    { id:'f_duck', name:'鸭肉', cooking:'煮', category:'肉类', protein:16.0, fat:19.0, fiber:0, carb:0 },
+    { id:'f_salmon', name:'三文鱼', cooking:'煎', category:'肉类', protein:20.0, fat:13.0, fiber:0, carb:0 },
+    { id:'f_cod', name:'鳕鱼', cooking:'蒸', category:'肉类', protein:18.0, fat:1.0, fiber:0, carb:0 },
+    { id:'f_shrimp', name:'虾', cooking:'煮', category:'肉类', protein:18.0, fat:1.0, fiber:0, carb:0 },
+    // 蛋奶
+    { id:'f_egg_boiled', name:'鸡蛋', cooking:'煮', category:'蛋奶', protein:12.6, fat:10.6, fiber:0, carb:1.1 },
+    { id:'f_egg_fried', name:'鸡蛋', cooking:'煎', category:'蛋奶', protein:13.6, fat:15.0, fiber:0, carb:1.0 },
+    { id:'f_duck_egg', name:'鸭蛋', cooking:'煮', category:'蛋奶', protein:12.8, fat:15.0, fiber:0, carb:1.0 },
+    { id:'f_milk', name:'牛奶', cooking:'全脂', category:'蛋奶', protein:3.0, fat:3.2, fiber:0, carb:4.8 },
+    { id:'f_milk_low', name:'牛奶', cooking:'低脂', category:'蛋奶', protein:3.4, fat:1.0, fiber:0, carb:5.0 },
+    { id:'f_yogurt', name:'酸奶', cooking:'原味', category:'蛋奶', protein:3.0, fat:3.0, fiber:0, carb:4.0 },
+    { id:'f_soymilk', name:'豆浆', cooking:'无糖', category:'蛋奶', protein:3.0, fat:1.6, fiber:0.3, carb:1.8 },
+    // 豆制品
+    { id:'f_tofu', name:'豆腐', cooking:'蒸', category:'豆制品', protein:8.1, fat:3.7, fiber:0.4, carb:3.8 },
+    { id:'f_tofu_dried', name:'豆腐干', cooking:'卤', category:'豆制品', protein:16.0, fat:9.0, fiber:0.5, carb:2.0 },
+    { id:'f_tofu_skin', name:'豆皮', cooking:'煮', category:'豆制品', protein:20.0, fat:8.0, fiber:1.0, carb:3.0 },
+    // 蔬菜
+    { id:'f_broccoli', name:'西兰花', cooking:'煮', category:'蔬菜', protein:2.8, fat:0.4, fiber:2.6, carb:4.0 },
+    { id:'f_spinach', name:'菠菜', cooking:'煮', category:'蔬菜', protein:2.9, fat:0.4, fiber:2.0, carb:3.6 },
+    { id:'f_cabbage', name:'大白菜', cooking:'煮', category:'蔬菜', protein:1.5, fat:0.1, fiber:0.8, carb:3.0 },
+    { id:'f_tomato', name:'番茄', cooking:'生', category:'蔬菜', protein:0.9, fat:0.2, fiber:1.2, carb:3.5 },
+    { id:'f_cucumber', name:'黄瓜', cooking:'生', category:'蔬菜', protein:0.8, fat:0.1, fiber:0.5, carb:2.9 },
+    { id:'f_carrot', name:'胡萝卜', cooking:'煮', category:'蔬菜', protein:1.0, fat:0.2, fiber:2.8, carb:8.8 },
+    { id:'f_lettuce', name:'生菜', cooking:'生', category:'蔬菜', protein:1.3, fat:0.3, fiber:0.7, carb:2.0 },
+    { id:'f_pepper', name:'青椒', cooking:'生', category:'蔬菜', protein:1.0, fat:0.2, fiber:1.4, carb:4.0 },
+    { id:'f_eggplant', name:'茄子', cooking:'蒸', category:'蔬菜', protein:1.1, fat:0.2, fiber:1.3, carb:4.9 },
+    { id:'f_mushroom', name:'蘑菇', cooking:'煮', category:'蔬菜', protein:2.2, fat:0.3, fiber:2.5, carb:3.3 },
+    // 水果
+    { id:'f_apple', name:'苹果', cooking:'生', category:'水果', protein:0.2, fat:0.2, fiber:2.4, carb:13.5 },
+    { id:'f_banana', name:'香蕉', cooking:'生', category:'水果', protein:1.1, fat:0.3, fiber:2.6, carb:22.0 },
+    { id:'f_orange', name:'橙子', cooking:'生', category:'水果', protein:0.9, fat:0.1, fiber:2.4, carb:11.0 },
+    { id:'f_grape', name:'葡萄', cooking:'生', category:'水果', protein:0.5, fat:0.2, fiber:0.9, carb:10.0 },
+    { id:'f_watermelon', name:'西瓜', cooking:'生', category:'水果', protein:0.6, fat:0.1, fiber:0.3, carb:7.0 },
+    { id:'f_strawberry', name:'草莓', cooking:'生', category:'水果', protein:0.7, fat:0.3, fiber:2.0, carb:7.0 },
+    { id:'f_blueberry', name:'蓝莓', cooking:'生', category:'水果', protein:0.7, fat:0.3, fiber:2.4, carb:14.5 },
+    { id:'f_kiwi', name:'猕猴桃', cooking:'生', category:'水果', protein:0.8, fat:0.6, fiber:3.0, carb:14.5 },
+    { id:'f_pear', name:'梨', cooking:'生', category:'水果', protein:0.4, fat:0.1, fiber:3.1, carb:10.0 },
+    { id:'f_peach', name:'桃子', cooking:'生', category:'水果', protein:0.9, fat:0.1, fiber:1.5, carb:10.0 },
+    // 坚果及其他
+    { id:'f_peanut', name:'花生', cooking:'炒', category:'坚果及其他', protein:24.0, fat:44.0, fiber:6.0, carb:16.0 },
+    { id:'f_walnut', name:'核桃', cooking:'生', category:'坚果及其他', protein:15.0, fat:65.0, fiber:7.0, carb:13.0 },
+    { id:'f_almond', name:'杏仁', cooking:'生', category:'坚果及其他', protein:21.0, fat:50.0, fiber:12.0, carb:20.0 },
+    { id:'f_honey', name:'蜂蜜', cooking:'无', category:'坚果及其他', protein:0.3, fat:0, fiber:0.2, carb:82.0 },
+    { id:'f_sugar', name:'白糖', cooking:'无', category:'坚果及其他', protein:0, fat:0, fiber:0, carb:100 },
+    { id:'f_oil', name:'食用油', cooking:'无', category:'坚果及其他', protein:0, fat:100, fiber:0, carb:0 },
+    // 以下为补充的内置食物（近似参考值）
+    { id:'f_brownrice', name:'糙米饭', cooking:'蒸', category:'主食', protein:2.6, fat:0.9, fiber:1.8, carb:23.0 },
+    { id:'f_pasta', name:'意大利面', cooking:'煮', category:'主食', protein:5.0, fat:1.0, fiber:1.8, carb:25.0 },
+    { id:'f_dumpling', name:'饺子', cooking:'猪肉馅', category:'主食', protein:8.0, fat:7.0, fiber:0.7, carb:22.0 },
+    { id:'f_baozi', name:'包子', cooking:'猪肉馅', category:'主食', protein:8.0, fat:6.0, fiber:1.0, carb:25.0 },
+    { id:'f_youtiao', name:'油条', cooking:'炸', category:'主食', protein:7.0, fat:23.0, fiber:0.5, carb:40.0 },
+    { id:'f_shaobing', name:'烧饼', cooking:'烤', category:'主食', protein:8.0, fat:5.0, fiber:2.0, carb:45.0 },
+    { id:'f_niangao', name:'年糕', cooking:'蒸', category:'主食', protein:2.5, fat:0.5, fiber:0.5, carb:33.0 },
+    { id:'f_zongzi', name:'粽子', cooking:'蒸', category:'主食', protein:5.0, fat:4.0, fiber:1.0, carb:28.0 },
+    { id:'f_fensi', name:'粉条', cooking:'煮', category:'主食', protein:0.5, fat:0.1, fiber:0.3, carb:21.0 },
+    { id:'f_zishu', name:'紫薯', cooking:'蒸', category:'主食', protein:1.6, fat:0.2, fiber:3.0, carb:22.0 },
+    { id:'f_chicken_skin', name:'鸡肉（带皮）', cooking:'煮', category:'肉类', protein:19.0, fat:9.0, fiber:0, carb:0 },
+    { id:'f_chicken_wing', name:'鸡翅', cooking:'煮', category:'肉类', protein:17.0, fat:12.0, fiber:0, carb:0 },
+    { id:'f_pork_rib', name:'猪排骨', cooking:'炖', category:'肉类', protein:17.0, fat:23.0, fiber:0, carb:0 },
+    { id:'f_pork_liver', name:'猪肝', cooking:'煮', category:'肉类', protein:19.0, fat:3.5, fiber:0, carb:1.5 },
+    { id:'f_beef_fat', name:'牛肉（肥瘦）', cooking:'煮', category:'肉类', protein:18.0, fat:13.0, fiber:0, carb:0 },
+    { id:'f_tripe', name:'牛肚', cooking:'煮', category:'肉类', protein:14.0, fat:1.5, fiber:0, carb:0 },
+    { id:'f_hairtail', name:'带鱼', cooking:'煎', category:'肉类', protein:18.0, fat:4.0, fiber:0, carb:0 },
+    { id:'f_bass', name:'鲈鱼', cooking:'蒸', category:'肉类', protein:18.6, fat:3.4, fiber:0, carb:0 },
+    { id:'f_crab', name:'螃蟹', cooking:'蒸', category:'肉类', protein:17.0, fat:2.0, fiber:0, carb:0 },
+    { id:'f_squid', name:'鱿鱼', cooking:'煮', category:'肉类', protein:16.0, fat:1.0, fiber:0, carb:0 },
+    { id:'f_luncheon', name:'午餐肉', cooking:'煎', category:'肉类', protein:9.0, fat:28.0, fiber:0, carb:2.0 },
+    { id:'f_sausage', name:'火腿肠', cooking:'即食', category:'肉类', protein:12.0, fat:20.0, fiber:0, carb:5.0 },
+    { id:'f_quail_egg', name:'鹌鹑蛋', cooking:'煮', category:'蛋奶', protein:12.8, fat:11.1, fiber:0, carb:1.0 },
+    { id:'f_cheese', name:'奶酪', cooking:'即食', category:'蛋奶', protein:25.0, fat:33.0, fiber:0, carb:3.0 },
+    { id:'f_milkpowder', name:'全脂奶粉', cooking:'冲调', category:'蛋奶', protein:20.0, fat:21.0, fiber:0, carb:40.0 },
+    { id:'f_condensed', name:'炼乳', cooking:'即食', category:'蛋奶', protein:8.0, fat:8.0, fiber:0, carb:55.0 },
+    { id:'f_cream', name:'奶油', cooking:'即食', category:'蛋奶', protein:2.0, fat:35.0, fiber:0, carb:3.0 },
+    { id:'f_soybean', name:'黄豆', cooking:'煮', category:'豆制品', protein:35.0, fat:16.0, fiber:15.5, carb:34.0 },
+    { id:'f_mungbean', name:'绿豆', cooking:'煮', category:'豆制品', protein:21.6, fat:0.8, fiber:6.4, carb:62.0 },
+    { id:'f_redbean', name:'红豆', cooking:'煮', category:'豆制品', protein:20.2, fat:0.6, fiber:7.7, carb:63.0 },
+    { id:'f_edamame', name:'毛豆', cooking:'煮', category:'豆制品', protein:13.1, fat:5.0, fiber:4.0, carb:10.5 },
+    { id:'f_beanjelly', name:'豆腐脑', cooking:'即食', category:'豆制品', protein:2.0, fat:1.0, fiber:0.3, carb:2.0 },
+    { id:'f_soyvege', name:'素鸡', cooking:'即食', category:'豆制品', protein:16.0, fat:5.0, fiber:1.0, carb:3.0 },
+    { id:'f_celery', name:'芹菜', cooking:'炒', category:'蔬菜', protein:1.2, fat:0.2, fiber:1.2, carb:3.3 },
+    { id:'f_chive', name:'韭菜', cooking:'炒', category:'蔬菜', protein:2.4, fat:0.4, fiber:1.4, carb:4.6 },
+    { id:'f_onion', name:'洋葱', cooking:'炒', category:'蔬菜', protein:1.1, fat:0.2, fiber:1.7, carb:9.0 },
+    { id:'f_garlicsprout', name:'蒜苔', cooking:'炒', category:'蔬菜', protein:2.0, fat:0.2, fiber:2.5, carb:6.0 },
+    { id:'f_pumpkin', name:'南瓜', cooking:'蒸', category:'蔬菜', protein:1.0, fat:0.1, fiber:0.8, carb:5.3 },
+    { id:'f_waxgourd', name:'冬瓜', cooking:'煮', category:'蔬菜', protein:0.4, fat:0.1, fiber:0.7, carb:2.6 },
+    { id:'f_loofah', name:'丝瓜', cooking:'炒', category:'蔬菜', protein:1.0, fat:0.1, fiber:0.6, carb:3.6 },
+    { id:'f_bittergourd', name:'苦瓜', cooking:'炒', category:'蔬菜', protein:1.0, fat:0.1, fiber:1.4, carb:4.0 },
+    { id:'f_radish', name:'白萝卜', cooking:'煮', category:'蔬菜', protein:0.9, fat:0.1, fiber:1.0, carb:4.0 },
+    { id:'f_lotusroot', name:'莲藕', cooking:'煮', category:'蔬菜', protein:1.9, fat:0.2, fiber:1.2, carb:16.0 },
+    { id:'f_beansprout', name:'豆芽', cooking:'炒', category:'蔬菜', protein:2.1, fat:0.1, fiber:1.3, carb:2.9 },
+    { id:'f_asparagus', name:'芦笋', cooking:'煮', category:'蔬菜', protein:2.2, fat:0.1, fiber:2.1, carb:3.9 },
+    { id:'f_cauliflower', name:'菜花', cooking:'煮', category:'蔬菜', protein:1.9, fat:0.2, fiber:2.0, carb:4.0 },
+    { id:'f_mango', name:'芒果', cooking:'生', category:'水果', protein:0.8, fat:0.4, fiber:1.6, carb:14.0 },
+    { id:'f_pineapple', name:'菠萝', cooking:'生', category:'水果', protein:0.5, fat:0.1, fiber:1.4, carb:13.0 },
+    { id:'f_pomelo', name:'柚子', cooking:'生', category:'水果', protein:0.8, fat:0.2, fiber:1.0, carb:9.5 },
+    { id:'f_lemon', name:'柠檬', cooking:'生', category:'水果', protein:1.1, fat:0.3, fiber:2.8, carb:9.3 },
+    { id:'f_cherry', name:'樱桃', cooking:'生', category:'水果', protein:1.1, fat:0.2, fiber:2.1, carb:16.0 },
+    { id:'f_pomegranate', name:'石榴', cooking:'生', category:'水果', protein:1.4, fat:0.2, fiber:4.0, carb:19.0 },
+    { id:'f_dragonfruit', name:'火龙果', cooking:'生', category:'水果', protein:1.1, fat:0.2, fiber:1.6, carb:13.0 },
+    { id:'f_lychee', name:'荔枝', cooking:'生', category:'水果', protein:0.9, fat:0.2, fiber:0.5, carb:16.5 },
+    { id:'f_longan', name:'龙眼', cooking:'生', category:'水果', protein:1.3, fat:0.1, fiber:1.1, carb:16.5 },
+    { id:'f_mangosteen', name:'山竹', cooking:'生', category:'水果', protein:0.4, fat:0.1, fiber:1.8, carb:17.0 },
+    { id:'f_cashew', name:'腰果', cooking:'生', category:'坚果及其他', protein:18.0, fat:44.0, fiber:3.3, carb:30.0 },
+    { id:'f_pistachio', name:'开心果', cooking:'生', category:'坚果及其他', protein:20.0, fat:45.0, fiber:10.0, carb:28.0 },
+    { id:'f_sunflower', name:'葵花籽', cooking:'炒', category:'坚果及其他', protein:21.0, fat:49.0, fiber:8.6, carb:20.0 },
+    { id:'f_sesame', name:'芝麻', cooking:'炒', category:'坚果及其他', protein:19.1, fat:46.1, fiber:14.0, carb:24.0 },
+    { id:'f_chocolate', name:'巧克力', cooking:'即食', category:'坚果及其他', protein:7.0, fat:34.0, fiber:7.0, carb:53.0 },
+    { id:'f_chips', name:'薯片', cooking:'即食', category:'坚果及其他', protein:7.0, fat:35.0, fiber:4.0, carb:50.0 },
+    { id:'f_biscuit', name:'饼干', cooking:'即食', category:'坚果及其他', protein:8.0, fat:20.0, fiber:2.0, carb:65.0 },
+    { id:'f_icecream', name:'冰淇淋', cooking:'即食', category:'坚果及其他', protein:3.5, fat:11.0, fiber:0, carb:24.0 },
+    { id:'f_cola', name:'可乐', cooking:'即饮', category:'坚果及其他', protein:0, fat:0, fiber:0, carb:10.5 }
+  ];
+
+  var NUTRIENTS = [
+    { key:'protein', label:'蛋白质', unit:'克' },
+    { key:'fat', label:'脂肪', unit:'克' },
+    { key:'fiber', label:'膳食纤维', unit:'克' },
+    { key:'carb', label:'碳水', unit:'克' },
+    { key:'kcal', label:'总热量', unit:'千卡' }
+  ];
+
+  // 食物分类（含自定义）
+  var CATEGORIES = ['主食','肉类','蛋奶','豆制品','蔬菜','水果','坚果及其他','自定义'];
+
+  // ---------- 工具 ----------
+  function $(id){ return document.getElementById(id); }
+  function round1(n){ return Math.round(n*10)/10; }
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function formatKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function parseKey(key){ var p = key.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+  function todayKey(){ return formatKey(new Date()); }
+
+  // ---------- 存储 ----------
+  function loadJSON(key, fb){ try{ var r=localStorage.getItem(key); return r?JSON.parse(r):fb; }catch(e){ return fb; } }
+  function saveJSON(key, v){ try{ localStorage.setItem(key, JSON.stringify(v)); }catch(e){} }
+
+  function getProfile(){ return loadJSON('userProfile', null); }
+  function setProfile(p){ saveJSON('userProfile', p); }
+  function getLogs(){ return loadJSON('dailyLogs', {}); }
+  function addLog(key, entry){ var logs=getLogs(); if(!logs[key]) logs[key]=[]; logs[key].push(entry); saveJSON('dailyLogs', logs); }
+  function removeLog(key, idx){ var logs=getLogs(); if(logs[key]){ logs[key].splice(idx,1); if(logs[key].length===0) delete logs[key]; } saveJSON('dailyLogs', logs); }
+  function getCustomFoods(){ return loadJSON('foods', []); }
+  function addCustomFood(f){ var list=getCustomFoods(); f.id='c'+Date.now()+Math.floor(Math.random()*1000); f.isCustom=true; list.push(f); saveJSON('foods', list); }
+  function removeCustomFood(id){ saveJSON('foods', getCustomFoods().filter(function(f){ return f.id!==id; })); }
+  function getAllFoods(){ return BUILTIN_FOODS.concat(getCustomFoods()); }
+
+  // ---------- 计算 ----------
+  function calcRecommendation(p){
+    var bmr = p.gender==='female'
+      ? 10*p.weightKg + 6.25*p.heightCm - 5*p.age - 161
+      : 10*p.weightKg + 6.25*p.heightCm - 5*p.age + 5;
+    var act = ACTIVITY_LEVELS.find(function(a){return a.value===p.activityLevel;}) || ACTIVITY_LEVELS[0];
+    var tdee = bmr * act.factor;
+    var protein = p.weightKg * 1.2;
+    var fat = tdee * 0.25 / 9;
+    var carb = (tdee - protein*4 - fat*9) / 4;
+    var fiber = 25;
+    return { protein:round1(protein), fat:round1(fat), fiber:round1(fiber), carb:round1(carb), kcal:Math.round(tdee) };
+  }
+
+  function calcNutrients(per100, grams){
+    var k = grams/100;
+    var protein = round1(per100.protein*k);
+    var fat = round1(per100.fat*k);
+    var fiber = round1(per100.fiber*k);
+    var carb = round1(per100.carb*k);
+    var kcal = Math.round(protein*4 + carb*4 + fat*9 + fiber*2);
+    return { protein:protein, fat:fat, fiber:fiber, carb:carb, kcal:kcal };
+  }
+
+  function sumDate(key){
+    var arr = (getLogs()[key] || []);
+    var sum = { protein:0, fat:0, fiber:0, carb:0, kcal:0 };
+    arr.forEach(function(e){
+      sum.protein += e.protein; sum.fat += e.fat; sum.fiber += e.fiber; sum.carb += e.carb; sum.kcal += e.kcal;
+    });
+    sum.protein = round1(sum.protein); sum.fat = round1(sum.fat); sum.fiber = round1(sum.fiber); sum.carb = round1(sum.carb); sum.kcal = Math.round(sum.kcal);
+    return { arr:arr, sum:sum };
+  }
+
+  // 首页当前查看的日期（可翻看历史）
+  var viewDate = todayKey();
+  function shiftDate(days){
+    var d = parseKey(viewDate);
+    d.setDate(d.getDate() + days);
+    viewDate = formatKey(d);
+    renderHome();
+  }
+
+  // ---------- 首页 ----------
+  function renderHome(){
+    var profile = getProfile();
+    var today = sumDate(viewDate);
+    var isToday = (viewDate === todayKey());
+    var dateLabel = isToday ? ('今天 ' + viewDate) : viewDate;
+
+    // 过去是「补记」，将来是「提前记录」
+    var jumpLabel = (viewDate < todayKey()) ? '补记这天' : '记录到这天';
+
+    $('view-date').value = viewDate;
+    $('date-actions').classList.toggle('hidden', isToday);
+    $('backfill-btn').textContent = jumpLabel;
+
+    var html = '';
+    if(!profile){
+      html = '<div class="subtitle">' + dateLabel + '</div>'
+        + '<div class="hint">请先在「我的」页填写身体信息，<br>就能看到每日推荐量和今日统计。</div>';
+    } else {
+      var rec = calcRecommendation(profile);
+      html += '<div class="subtitle">' + dateLabel + ' · 按 ' + esc(profile.heightCm) + 'cm / ' + esc(profile.weightKg) + 'kg 计算，仅供参考</div>';
+      NUTRIENTS.forEach(function(n){
+        var consumed = today.sum[n.key];
+        var target = rec[n.key];
+        var ratio = target>0 ? consumed/target : 0;
+        var level = ratio>1 ? 'over' : (ratio>=0.9 ? 'near' : 'ok');
+        var pct = Math.min(ratio,1)*100;
+        html += '<div class="card">'
+          + '<div class="nutri-row"><span class="nutri-label">' + n.label + '</span><span class="nutri-value">' + consumed + ' / ' + target + ' ' + n.unit + '</span></div>'
+          + '<div class="progress"><div class="progress-fill ' + level + '" style="width:' + pct.toFixed(1) + '%"></div></div>'
+          + '<div class="nutri-note">已摄入 ' + (ratio*100).toFixed(0) + '%</div>'
+          + '</div>';
+      });
+    }
+
+    // 当日已记录的食物列表
+    if(today.arr.length){
+      html += '<div class="card"><div style="font-size:15px;font-weight:600;margin-bottom:4px;">已记录</div>';
+      today.arr.forEach(function(e, i){
+        html += '<div class="entry">'
+          + '<div><div class="name">' + esc(e.name) + '（' + esc(e.cooking) + '）</div><div class="sub">' + esc(e.grams) + ' 克</div></div>'
+          + '<div style="display:flex;align-items:center;"><span class="kcal">' + e.kcal + ' 千卡</span>'
+          + '<button class="del" type="button" data-del="' + i + '" aria-label="删除">×</button></div>'
+          + '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="hint">' + (isToday
+        ? '今天还没有记录，<br>去「记录」页添加吧。'
+        : ('这一天没有记录，<br>点上方「' + jumpLabel + '」可以添加。')) + '</div>';
+    }
+
+    $('home-content').innerHTML = html;
+  }
+
+  // ---------- 汇总页 ----------
+  var summaryDays = 7;
+
+  // 生成最近 days 天的日期键（从早到晚，最后一个是今天）
+  function dateRange(days){
+    var list = [];
+    var now = new Date();
+    for(var i = days-1; i >= 0; i--){
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      d.setDate(d.getDate() - i);
+      list.push(formatKey(d));
+    }
+    return list;
+  }
+
+  // 汇总最近 days 天：总摄入、有记录的天数、逐日热量
+  function sumRange(days){
+    var keys = dateRange(days);
+    var logs = getLogs();
+    var total = { protein:0, fat:0, fiber:0, carb:0, kcal:0 };
+    var daily = [];
+    var recordedDays = 0;
+    keys.forEach(function(k){
+      var arr = logs[k] || [];
+      var dSum = 0;
+      if(arr.length) recordedDays++;
+      arr.forEach(function(e){
+        total.protein += e.protein; total.fat += e.fat; total.fiber += e.fiber; total.carb += e.carb; total.kcal += e.kcal;
+        dSum += e.kcal;
+      });
+      daily.push({ key:k, kcal:Math.round(dSum), has:arr.length>0 });
+    });
+    total.protein = round1(total.protein); total.fat = round1(total.fat);
+    total.fiber = round1(total.fiber); total.carb = round1(total.carb); total.kcal = Math.round(total.kcal);
+    return { keys:keys, total:total, daily:daily, recordedDays:recordedDays };
+  }
+
+  function renderSummary(){
+    var profile = getProfile();
+    var data = sumRange(summaryDays);
+    var box = $('summary-content');
+    var html = '';
+
+    if(!data.recordedDays){
+      box.innerHTML = '<div class="hint">最近 ' + summaryDays + ' 天还没有记录。<br>去「记录」页添加饮食后，这里会显示汇总。</div>';
+      return;
+    }
+
+    var divisor = data.recordedDays;
+    var avg = {
+      protein: round1(data.total.protein/divisor),
+      fat: round1(data.total.fat/divisor),
+      fiber: round1(data.total.fiber/divisor),
+      carb: round1(data.total.carb/divisor),
+      kcal: Math.round(data.total.kcal/divisor)
+    };
+
+    // 概览
+    html += '<div class="card"><div class="card-title">概览</div>'
+      + '<div class="result-line"><span>有记录的天数</span><b>' + data.recordedDays + ' / ' + summaryDays + ' 天</b></div>'
+      + '<div class="result-line"><span>日均总热量</span><b>' + avg.kcal + ' 千卡</b></div>'
+      + '<div class="result-line"><span>区间总热量</span><b>' + data.total.kcal + ' 千卡</b></div>'
+      + '</div>';
+
+    // 日均摄入 vs 推荐量
+    if(!profile){
+      html += '<div class="hint">填写身体信息后，这里会显示日均摄入与推荐量的对比。</div>';
+    } else {
+      var rec = calcRecommendation(profile);
+      html += '<div class="subtitle">日均摄入 vs 每日推荐（按有记录的 ' + data.recordedDays + ' 天平均）</div>';
+      NUTRIENTS.forEach(function(n){
+        var consumed = avg[n.key];
+        var target = rec[n.key];
+        var ratio = target>0 ? consumed/target : 0;
+        var level = ratio>1 ? 'over' : (ratio>=0.9 ? 'near' : 'ok');
+        var pct = Math.min(ratio,1)*100;
+        html += '<div class="card">'
+          + '<div class="nutri-row"><span class="nutri-label">' + n.label + '</span><span class="nutri-value">日均 ' + consumed + ' / ' + target + ' ' + n.unit + '</span></div>'
+          + '<div class="progress"><div class="progress-fill ' + level + '" style="width:' + pct.toFixed(1) + '%"></div></div>'
+          + '<div class="nutri-note">达到推荐的 ' + (ratio*100).toFixed(0) + '%</div>'
+          + '</div>';
+      });
+    }
+
+    // 每日热量趋势
+    var maxKcal = 0;
+    data.daily.forEach(function(d){ if(d.kcal > maxKcal) maxKcal = d.kcal; });
+    if(profile){
+      var recKcal = calcRecommendation(profile).kcal;
+      if(recKcal > maxKcal) maxKcal = recKcal;
+    }
+    if(maxKcal <= 0) maxKcal = 1;
+
+    var tk = todayKey();
+    html += '<div class="card"><div class="card-title">每日热量趋势</div>'
+      + '<div class="subtitle" style="margin:4px 0 0;">每根柱子是一天，绿色是今天，浅色是当天没有记录</div>'
+      + '<div class="bars">';
+    data.daily.forEach(function(d){
+      var h = Math.max(2, Math.round(d.kcal/maxKcal*100));
+      var cls = d.key===tk ? 'bar today' : (d.has ? 'bar has' : 'bar');
+      html += '<div class="' + cls + '" style="height:' + h + '%" title="' + d.key + '：' + d.kcal + ' 千卡"></div>';
+    });
+    html += '</div>'
+      + '<div class="bars-axis"><span>' + data.keys[0] + '</span><span>' + data.keys[data.keys.length-1] + '</span></div>'
+      + '</div>';
+
+    // 区间总计明细
+    html += '<div class="card"><div class="card-title">区间总计（' + data.recordedDays + ' 天）</div>';
+    NUTRIENTS.forEach(function(n){
+      html += '<div class="result-line"><span>' + n.label + '</span><b>' + data.total[n.key] + ' ' + n.unit + '</b></div>';
+    });
+    html += '</div>';
+
+    box.innerHTML = html;
+  }
+
+  function setSummaryDays(days){
+    summaryDays = days;
+    $('seg-7').classList.toggle('active', days===7);
+    $('seg-30').classList.toggle('active', days===30);
+    renderSummary();
+  }
+
+  // ---------- 日历（按月查看过往某天的摄入） ----------
+  var calY = new Date().getFullYear();
+  var calM = new Date().getMonth(); // 0-11
+
+  function shiftMonth(n){
+    var d = new Date(calY, calM + n, 1);
+    calY = d.getFullYear();
+    calM = d.getMonth();
+    renderCalendar();
+  }
+
+  function renderCalendar(){
+    var profile = getProfile();
+    var recKcal = profile ? calcRecommendation(profile).kcal : 0;
+    var logs = getLogs();
+    var tk = todayKey();
+
+    $('cal-title').textContent = calY + '年' + (calM+1) + '月';
+
+    var startWd = new Date(calY, calM, 1).getDay();      // 0=周日
+    var daysInMonth = new Date(calY, calM+1, 0).getDate();
+
+    var html = '';
+    ['日','一','二','三','四','五','六'].forEach(function(w){
+      html += '<div class="cal-wd">' + w + '</div>';
+    });
+    // 月初空格，让 1 号对齐星期
+    for(var i=0; i<startWd; i++){ html += '<div class="cal-cell cal-empty"></div>'; }
+
+    var recordedDays = 0, monthKcal = 0;
+    for(var d=1; d<=daysInMonth; d++){
+      var key = formatKey(new Date(calY, calM, d));
+      var arr = logs[key] || [];
+      var kcal = 0;
+      arr.forEach(function(e){ kcal += e.kcal; });
+      kcal = Math.round(kcal);
+      if(arr.length){ recordedDays++; monthKcal += kcal; }
+
+      var cls = 'cal-cell';
+      if(recKcal > 0 && arr.length){
+        var ratio = kcal / recKcal;
+        if(ratio > 1.1) cls += ' cal-over';
+        else if(ratio >= 0.9) cls += ' cal-full';
+        else if(ratio >= 0.5) cls += ' cal-mid';
+        else cls += ' cal-low';
+      } else if(arr.length){
+        // 没填身体信息时，有记录就用最浅的蓝色
+        cls += ' cal-low';
+      }
+      if(key === tk) cls += ' cal-today';
+
+      var tip = key + (arr.length ? ('：' + kcal + ' 千卡') : '（无记录）');
+      html += '<div class="' + cls + '" data-cal="' + key + '" title="' + tip + '">' + d + '</div>';
+    }
+    $('cal-grid').innerHTML = html;
+
+    $('cal-info').textContent = recordedDays
+      ? ('本月记录 ' + recordedDays + ' 天，共 ' + monthKcal + ' 千卡')
+      : '本月还没有记录';
+  }
+
+  // ---------- 记录页 ----------
+  var mode = 'lib';
+
+  // 记录页当前选择的日期（默认今天），用于补记
+  function recordDate(){
+    var v = $('rec-date').value;
+    return v || todayKey();
+  }
+
+  function refreshRecordDateNote(){
+    var note = $('rec-date-note');
+    var v = recordDate();
+    var tk = todayKey();
+    if(v === tk){
+      note.className = 'nutri-note';
+      note.textContent = '默认为今天。也可以改成别的日期，补记过去或提前记录将来的饮食。';
+    } else if(v < tk){
+      note.className = 'nutri-note rec-date-warn';
+      note.textContent = '正在补记 ' + v + ' 的饮食（不是今天）。';
+    } else {
+      note.className = 'nutri-note rec-date-warn';
+      note.textContent = '正在记录到将来的 ' + v + '。';
+    }
+  }
+
+  // 把记录页的日期设为某天，并跳到记录页
+  function startBackfill(key){
+    $('rec-date').value = key;
+    refreshRecordDateNote();
+    renderPreview();
+    switchTab('record');
+  }
+
+  function populateFoodSelect(){
+    var all = getAllFoods();
+    var html = '';
+    CATEGORIES.forEach(function(cat){
+      var items = all.filter(function(f){ return f.category===cat; });
+      if(!items.length) return;
+      html += '<optgroup label="' + cat + '">';
+      items.forEach(function(f){
+        html += '<option value="' + f.id + '">' + esc(f.name) + '（' + esc(f.cooking) + '）</option>';
+      });
+      html += '</optgroup>';
+    });
+    $('food-select').innerHTML = html;
+  }
+
+  function currentInput(){
+    if(mode==='lib'){
+      var id = $('food-select').value;
+      var food = getAllFoods().find(function(f){return f.id===id;});
+      var grams = parseFloat($('lib-grams').value);
+      if(!food || !(grams>0)) return null;
+      return { foodId:food.id, name:food.name, cooking:food.cooking, per100:{protein:food.protein, fat:food.fat, fiber:food.fiber, carb:food.carb}, grams:grams };
+    } else {
+      var name = $('m-name').value.trim();
+      var per100 = {
+        protein: parseFloat($('m-protein').value),
+        fat: parseFloat($('m-fat').value),
+        fiber: parseFloat($('m-fiber').value),
+        carb: parseFloat($('m-carb').value)
+      };
+      var grams2 = parseFloat($('m-grams').value);
+      if(!name || isNaN(per100.protein) || isNaN(per100.fat) || isNaN(per100.fiber) || isNaN(per100.carb) || !(grams2>0)) return null;
+      return { foodId:null, name:name, cooking:'自定义', per100:per100, grams:grams2 };
+    }
+  }
+
+  function renderPreview(){
+    var input = currentInput();
+    var box = $('preview');
+    if(!input){ box.classList.add('hidden'); box.innerHTML=''; return; }
+    var n = calcNutrients(input.per100, input.grams);
+    var html = '<div style="font-size:15px;font-weight:600;margin-bottom:8px;">' + esc(input.name) + '（' + esc(input.cooking) + '）· ' + esc(input.grams) + ' 克</div>';
+    NUTRIENTS.forEach(function(x){
+      html += '<div class="result-line"><span>' + x.label + '</span><b>' + n[x.key] + ' ' + x.unit + '</b></div>';
+    });
+    box.innerHTML = html;
+    box.classList.remove('hidden');
+  }
+
+  function confirmRecord(){
+    var input = currentInput();
+    if(!input){ toast('请填写完整信息（食物名称、营养值、分量）'); return; }
+    var dateKey = recordDate();
+    var n = calcNutrients(input.per100, input.grams);
+    var entry = {
+      foodId: input.foodId, name: input.name, cooking: input.cooking, grams: input.grams,
+      protein: n.protein, fat: n.fat, fiber: n.fiber, carb: n.carb, kcal: n.kcal,
+      time: new Date().toISOString()
+    };
+    addLog(dateKey, entry);
+    if(dateKey === todayKey()){ toast('已计入今日统计 ✓'); }
+    else if(dateKey < todayKey()){ toast('已补记到 ' + dateKey + ' ✓'); }
+    else { toast('已记录到 ' + dateKey + ' ✓'); }
+    // 清空分量，方便下次输入
+    if(mode==='lib'){ $('lib-grams').value=''; } else { $('m-grams').value=''; }
+    renderPreview();
+    viewDate = dateKey;
+    renderHome();
+    renderSummary();
+    renderCalendar();
+    switchTab('home');
+  }
+
+  function toast(text){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.classList.add('show'); }, 10);
+    setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 300); }, 1600);
+  }
+
+  function setMode(m){
+    mode = m;
+    $('seg-lib').classList.toggle('active', m==='lib');
+    $('seg-manual').classList.toggle('active', m==='manual');
+    $('record-lib').classList.toggle('hidden', m!=='lib');
+    $('record-manual').classList.toggle('hidden', m!=='manual');
+    renderPreview();
+  }
+
+  // ---------- 食物库页 ----------
+  function foodRow(f){
+    var kcal = Math.round(f.protein*4 + f.carb*4 + f.fat*9 + f.fiber*2);
+    var del = f.isCustom ? '<button class="del" data-del-food="' + f.id + '" type="button" aria-label="删除">×</button>' : '';
+    return '<div class="entry">'
+      + '<div style="flex:1;"><div class="name">' + esc(f.name) + '（' + esc(f.cooking) + '）</div>'
+      + '<div class="sub">每100克 · 蛋白 ' + f.protein + ' · 脂肪 ' + f.fat + ' · 纤维 ' + f.fiber + ' · 碳水 ' + f.carb + ' · ' + kcal + ' 千卡</div></div>'
+      + del
+      + '</div>';
+  }
+
+  function renderFoodLib(){
+    var q = ($('lib-search').value || '').trim();
+    var all = getAllFoods();
+    if(q){
+      var ql = q.toLowerCase();
+      all = all.filter(function(f){ return f.name.toLowerCase().indexOf(ql) >= 0; });
+    }
+    var html = '';
+    if(!all.length){
+      html = '<div class="hint">没有找到相关食物，可点上方「添加自定义食物」。</div>';
+    } else if(q){
+      all.forEach(function(f){ html += foodRow(f); });
+    } else {
+      CATEGORIES.forEach(function(cat){
+        var items = all.filter(function(f){ return f.category === cat; });
+        if(!items.length) return;
+        html += '<div class="cat-title">' + cat + '</div><div class="card">';
+        items.forEach(function(f){ html += foodRow(f); });
+        html += '</div>';
+      });
+    }
+    $('foodlib-list').innerHTML = html;
+  }
+
+  function saveCustomFood(){
+    var name = $('af-name').value.trim();
+    var cooking = $('af-cooking').value.trim() || '自定义';
+    var protein = parseFloat($('af-protein').value);
+    var fat = parseFloat($('af-fat').value);
+    var fiber = parseFloat($('af-fiber').value);
+    var carb = parseFloat($('af-carb').value);
+    if(!name || isNaN(protein) || isNaN(fat) || isNaN(fiber) || isNaN(carb)){
+      toast('请填写食物名称和完整营养值');
+      return;
+    }
+    addCustomFood({ name:name, cooking:cooking, protein:protein, fat:fat, fiber:fiber, carb:carb, category:'自定义' });
+    ['af-name','af-cooking','af-protein','af-fat','af-fiber','af-carb'].forEach(function(id){ $(id).value=''; });
+    $('add-food-form').classList.add('hidden');
+    renderFoodLib();
+    populateFoodSelect();
+    toast('已添加到食物库 ✓');
+  }
+
+  // ---------- 我的页 ----------
+  function populateActivity(){
+    var html = '';
+    ACTIVITY_LEVELS.forEach(function(a){ html += '<option value="' + a.value + '">' + a.label + '</option>'; });
+    $('p-activity').innerHTML = html;
+  }
+
+  function loadProfileForm(){
+    var p = getProfile();
+    $('p-height').value = p ? p.heightCm : '';
+    $('p-weight').value = p ? p.weightKg : '';
+    $('p-age').value = p ? p.age : '';
+    document.querySelectorAll('input[name=gender]').forEach(function(r){ r.checked = p ? (r.value===p.gender) : false; });
+    if(p){ $('p-activity').value = p.activityLevel; } else { $('p-activity').selectedIndex = 0; }
+  }
+
+  function renderProfileResult(){
+    var p = getProfile();
+    var box = $('profile-result');
+    if(!p){ box.classList.add('hidden'); box.innerHTML=''; return; }
+    var rec = calcRecommendation(p);
+    var html = '<div style="font-size:15px;font-weight:600;margin-bottom:8px;">每日推荐量</div>';
+    NUTRIENTS.forEach(function(n){
+      html += '<div class="result-line"><span>' + n.label + '</span><b>' + rec[n.key] + ' ' + n.unit + '</b></div>';
+    });
+    box.innerHTML = html;
+    box.classList.remove('hidden');
+  }
+
+  function saveProfile(){
+    var heightCm = parseFloat($('p-height').value);
+    var weightKg = parseFloat($('p-weight').value);
+    var age = parseInt($('p-age').value, 10);
+    var gender = (document.querySelector('input[name=gender]:checked')||{}).value;
+    var activityLevel = parseInt($('p-activity').value, 10);
+    if(!(heightCm>0) || !(weightKg>0) || !(age>0) || !gender){
+      toast('请完整填写身高、体重、年龄和性别');
+      return;
+    }
+    setProfile({ heightCm:heightCm, weightKg:weightKg, age:age, gender:gender, activityLevel:activityLevel });
+    renderProfileResult();
+    viewDate = todayKey();
+    renderHome();
+    toast('身体信息已保存 ✓');
+    switchTab('home');
+  }
+
+  // ---------- 标签切换 ----------
+  function switchTab(name){
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    $('page-'+name).classList.add('active');
+    document.querySelectorAll('.tabbar button').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===name); });
+    if(name==='record'){ populateFoodSelect(); refreshRecordDateNote(); }
+    if(name==='summary'){ renderSummary(); renderCalendar(); }
+    if(name==='foodlib'){ renderFoodLib(); }
+  }
+
+  // ---------- 事件绑定 ----------
+  document.querySelectorAll('.tabbar button').forEach(function(b){
+    b.addEventListener('click', function(){ switchTab(b.dataset.tab); });
+  });
+  $('seg-lib').addEventListener('click', function(){ setMode('lib'); });
+  $('seg-manual').addEventListener('click', function(){ setMode('manual'); });
+  $('confirm-btn').addEventListener('click', confirmRecord);
+  $('save-profile').addEventListener('click', saveProfile);
+  $('clear-data').addEventListener('click', function(){
+    if(!confirm('确定要清除所有数据吗？身体信息、食物库和记录都会被清空，且无法恢复。')) return;
+    ['userProfile','foods','dailyLogs'].forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+    loadProfileForm();
+    renderHome();
+    renderProfileResult();
+    renderFoodLib();
+    renderSummary();
+    renderCalendar();
+    populateFoodSelect();
+    $('rec-date').value = todayKey();
+    refreshRecordDateNote();
+    toast('已清除所有数据');
+  });
+  $('lib-search').addEventListener('input', renderFoodLib);
+  $('show-add-form').addEventListener('click', function(){ $('add-food-form').classList.toggle('hidden'); });
+  $('save-custom-food').addEventListener('click', saveCustomFood);
+
+  // 删除自定义食物（事件委托）
+  $('foodlib-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-del-food]');
+    if(!btn) return;
+    removeCustomFood(btn.dataset.delFood);
+    renderFoodLib();
+    populateFoodSelect();
+    toast('已删除该食物');
+  });
+
+  ['food-select','lib-grams'].forEach(function(id){ $(id).addEventListener('input', renderPreview); });
+  ['m-name','m-protein','m-fat','m-fiber','m-carb','m-grams'].forEach(function(id){ $(id).addEventListener('input', renderPreview); });
+
+  // 删除记录（事件委托，容器不会随 innerHTML 重建而失效）
+  $('home-content').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-del]');
+    if(!btn) return;
+    removeLog(viewDate, parseInt(btn.dataset.del, 10));
+    renderHome();
+  });
+
+  // 汇总区间切换
+  $('seg-7').addEventListener('click', function(){ setSummaryDays(7); });
+  $('seg-30').addEventListener('click', function(){ setSummaryDays(30); });
+
+  // 历史日期导航
+  $('prev-day').addEventListener('click', function(){ shiftDate(-1); });
+  $('next-day').addEventListener('click', function(){ shiftDate(1); });
+  $('today-btn').addEventListener('click', function(){ viewDate = todayKey(); renderHome(); });
+  $('backfill-btn').addEventListener('click', function(){ startBackfill(viewDate); });
+
+  // 首页直接选日期查询
+  $('view-date').addEventListener('change', function(){
+    var v = $('view-date').value;
+    if(!v){ renderHome(); return; }                    // 清空 → 还原成当前查看的日期
+    viewDate = v;
+    renderHome();
+  });
+
+  // 记录日期（补记）
+  $('rec-date').addEventListener('change', refreshRecordDateNote);
+
+  // 日历翻月和点选日期
+  $('cal-prev').addEventListener('click', function(){ shiftMonth(-1); });
+  $('cal-next').addEventListener('click', function(){ shiftMonth(1); });
+  $('cal-grid').addEventListener('click', function(e){
+    var cell = e.target.closest('[data-cal]');
+    if(!cell) return;
+    viewDate = cell.dataset.cal;
+    renderHome();
+    switchTab('home');
+  });
+
+  // ---------- 初始化 ----------
+  populateFoodSelect();
+  populateActivity();
+  loadProfileForm();
+  renderHome();
+  renderProfileResult();
+  renderFoodLib();
+  renderSummary();
+  renderCalendar();
+  // 记录日期默认今天
+  $('rec-date').value = todayKey();
+  refreshRecordDateNote();
+
+  // ---------- PWA：注册离线缓存 ----------
+  // 用 file:// 直接双击打开时不支持 Service Worker，所以先判断协议
+  if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+    navigator.serviceWorker.register('./sw.js').catch(function(){ /* 注册失败不影响使用 */ });
+  }
+})();
+</script>
+</body>
+</html>
